@@ -124,6 +124,12 @@ Kode Watch is a community project built on the work of **[Kode](https://kode.diy
 
 Docs: [docs.kode.diy](https://docs.kode.diy/sdk/overview)
 
+## Contact
+
+For support, questions or ideas, contact me on Discord: **mr.boss2106**.
+
+**Kode:** if you'd like anything changed (the project name, the use of Kode, Kode Dot, kodeOS or Kody, or anything else), message me there and I'll sort it out.
+
 ## License
 
 GPL-3.0-or-later, see [LICENSE](LICENSE). Exceptions:
