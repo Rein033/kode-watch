@@ -1,0 +1,314 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Kode-watch</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700&family=DM+Sans:wght@700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#0b0b0c;--card:#161618;--row:#1f1f22;--line:#2a2a2e;--ink:#ded7cd;--mid:#a8a19a;--dim:#6f6a65;
+--ok:#31c45a;--blue:#028ac2;--yel:#ffac00;--red:#c9303d;--soft:#191919}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.4 Outfit,system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+main{max-width:760px;margin:0 auto;padding:24px 16px 64px}
+header{display:flex;gap:22px;align-items:center;margin-bottom:22px}
+.watch{flex:none;width:118px;height:144px;border-radius:34px;background:#000;border:5px solid #2b2b2f;box-shadow:0 0 0 1px #000,0 12px 30px #0008;
+display:flex;flex-direction:column;justify-content:center;padding:0 14px;position:relative}
+.watch:after{content:"";position:absolute;right:-9px;top:38px;width:5px;height:26px;border-radius:3px;background:#2b2b2f}
+.watch .t{font:700 38px/1 "DM Sans",sans-serif;letter-spacing:-1px}
+.watch .d{color:var(--mid);font-size:12px;margin-top:4px}
+.watch .b{position:absolute;top:14px;right:16px;font-size:11px;color:var(--mid)}
+h1{font-size:28px;margin:0;font-weight:700}
+.sub{color:var(--mid);margin-top:4px}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+.chip{background:var(--row);border-radius:999px;padding:5px 12px;font-size:14px;color:var(--mid);display:flex;align-items:center;gap:7px}
+.chip b{color:var(--ink);font-weight:600}
+.dot{width:9px;height:9px;border-radius:50%;background:var(--dim)}
+.on .dot{background:var(--ok);box-shadow:0 0 8px var(--ok)}
+.card{background:var(--card);border-radius:22px;padding:18px;margin-top:14px}
+.card h2{font-size:15px;font-weight:600;color:var(--mid);text-transform:uppercase;letter-spacing:.08em;margin:0 0 12px}
+.hero{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.hero .v{font:700 30px "DM Sans",sans-serif}
+.hero .note{color:var(--mid);flex:1;min-width:180px}
+.btn{font:600 15px Outfit,sans-serif;border:0;border-radius:14px;padding:11px 18px;cursor:pointer;background:var(--blue);color:#fff;transition:filter .15s,transform .05s}
+.btn:hover{filter:brightness(1.12)}.btn:active{transform:scale(.97)}
+.btn.ok{background:var(--ok);color:#06210f}.btn.ghost{background:var(--row);color:var(--ink)}
+.btn:disabled{opacity:.4;cursor:default;filter:none}
+.bar{height:8px;border-radius:4px;background:var(--row);overflow:hidden;margin-top:12px;display:none}
+.bar i{display:block;height:100%;width:0;background:var(--ok);transition:width .4s}
+.list{display:flex;flex-direction:column;gap:8px}
+.item{display:flex;align-items:center;gap:12px;background:var(--row);border-radius:16px;padding:10px 12px}
+.ico{flex:none;width:40px;height:40px;border-radius:12px;display:grid;place-items:center;font-weight:700;color:var(--soft)}
+.item .n{flex:1;min-width:0}.item .n b{display:block;font-weight:600}.item .n span{color:var(--mid);font-size:13px}
+.tag{font-size:12px;border-radius:999px;padding:2px 9px;background:#31c45a22;color:var(--ok)}
+.tests{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px}
+.test{background:var(--row);border:0;border-radius:16px;padding:14px;color:var(--ink);font:600 15px Outfit,sans-serif;text-align:left;cursor:pointer;display:flex;flex-direction:column;gap:6px}
+.test:hover{background:#28282c}.test em{font-style:normal;font-size:24px}.test span{color:var(--mid);font-weight:400;font-size:13px}
+.test:disabled{opacity:.4;cursor:default}
+.live{display:flex;gap:18px;align-items:flex-start;flex-wrap:wrap}
+.glass{position:relative;width:246px;aspect-ratio:410/502;border-radius:40px;background:#000;border:6px solid #2b2b2f;overflow:hidden;touch-action:none;cursor:pointer;flex:none}
+.glass canvas{width:100%;height:100%;display:block;image-rendering:auto}
+.glass .off{position:absolute;inset:0;display:grid;place-items:center;color:var(--dim);font-size:14px;text-align:center;padding:20px}
+.pad{display:flex;flex-direction:column;gap:10px;flex:1;min-width:190px}
+.pad .row2{display:flex;gap:8px;flex-wrap:wrap}
+.pad .btn{flex:1}
+.hint{color:var(--dim);font-size:13px}
+details summary{cursor:pointer;color:var(--mid);margin-top:12px}
+#toast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%) translateY(80px);background:#2a2a2e;padding:11px 18px;border-radius:14px;transition:transform .25s;max-width:90vw}
+#toast.show{transform:translateX(-50%) translateY(0)}
+@media (max-width:520px){header{flex-direction:column;align-items:flex-start}.hero .v{font-size:26px}}
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <div class="watch"><div class="b" id="wb">--%</div><div class="t" id="wt">--:--</div><div class="d" id="wd">Kode-watch</div></div>
+    <div>
+      <h1>Kode-watch</h1>
+      <div class="sub" id="sub">Looking for the watch...</div>
+      <div class="chips" id="chips"></div>
+    </div>
+  </header>
+
+  <section class="card">
+    <h2>Live</h2>
+    <div class="live">
+      <div class="glass" id="glass"><canvas id="cv" width="205" height="251"></canvas><div class="off" id="off">Waiting for the screen...</div></div>
+      <div class="pad">
+        <div class="hint">Click to tap, drag to swipe. The picture is half size, about two frames a second.</div>
+        <div class="row2"><button class="btn ghost" data-ctl="top">TOP (BOOT)</button><button class="btn ghost" data-ctl="bot">PWR (back)</button></div>
+        <div class="row2"><button class="btn ghost" data-sw="l">&larr;</button><button class="btn ghost" data-sw="r">&rarr;</button><button class="btn ghost" data-sw="u">&uarr;</button><button class="btn ghost" data-sw="d">&darr;</button></div>
+        <div class="hint" id="fps"></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>Software</h2>
+    <div class="hero">
+      <div><div class="v" id="ver">-</div><div class="sub" id="slot"></div></div>
+      <div class="note" id="upnote"></div>
+      <button class="btn ok" id="upbtn" disabled>Update</button>
+    </div>
+    <div class="bar" id="bar"><i id="barfill"></i></div>
+    <details><summary>All versions</summary><div class="list" id="versions" style="margin-top:10px"></div></details>
+  </section>
+
+  <section class="card">
+    <h2>Content</h2>
+    <div class="list">
+      <div class="item"><div class="ico" style="background:var(--yel)">K</div>
+        <div class="n"><b>Kody worlds</b><span>Six worlds that follow the time of day, 7 MB</span></div>
+        <button class="btn ghost" id="kodybtn" disabled>Install</button></div>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>Files</h2>
+    <div class="row2" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px">
+      <button class="btn ghost" id="fsSd">microSD</button>
+      <button class="btn ghost" id="fsData">Flash</button>
+      <span class="sub" id="fsPath" style="flex:1;min-width:120px"></span>
+      <label class="btn" style="display:inline-block">Upload<input type="file" id="fsUp" hidden multiple></label>
+      <button class="btn ghost" id="fsMk">New folder</button>
+    </div>
+    <div class="bar" id="fsBar"><i id="fsBarI"></i></div>
+    <div class="list" id="fsList"><div class="sub">Open microSD or Flash</div></div>
+  </section>
+
+  <section class="card">
+    <h2>Store catalog</h2>
+    <div class="list" id="catalog"><div class="sub">Loading...</div></div>
+  </section>
+
+  <section class="card">
+    <h2>Tests</h2>
+    <div class="tests" id="tests"></div>
+  </section>
+</main>
+<div id="toast"></div>
+<script>
+const $ = (id) => document.getElementById(id);
+const TESTS = [
+  ["note", "🔔", "Notification", "with its sound"],
+  ["alarm", "⏰", "Timer alarm", "rings in 3 seconds"],
+  ["find", "📍", "Find my watch", "blinks blue"],
+  ["wake", "🌅", "Alarm clock", "rings now: snooze or stop"],
+  ["notifs", "📋", "Notifications", "opens the list"],
+  ["face", "⌚", "Watch face", "back to the face"],
+];
+let state = {}, toastT;
+function toast(t) { const e = $("toast"); e.textContent = t; e.classList.add("show"); clearTimeout(toastT); toastT = setTimeout(() => e.classList.remove("show"), 2600); }
+async function post(body, okText) {
+  const r = await fetch("api/update", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+  const j = await r.json().catch(() => ({}));
+  toast(r.ok ? okText : (j.error || ("Error " + r.status)));
+  setTimeout(load, 600);
+}
+const vname = (f) => f.replace(/^kw-/, "").replace(/-app\.bin$/, "");
+function chip(label, val, on) { return `<span class="chip${on ? " on" : ""}">${on !== undefined ? '<span class="dot"></span>' : ""}${label} <b>${val}</b></span>`; }
+function render() {
+  const s = state, st = s.st || {}, on = !!s.online;
+  $("sub").textContent = on ? "Connected to the hub" : "Not connected: is it on Wi-Fi and paired?";
+  $("wt").textContent = st.time || "--:--";
+  $("wb").textContent = (st.bat !== undefined ? st.bat + "%" : "--%");
+  $("wd").textContent = st.steps ? st.steps + " steps" : "Kode-watch";
+  $("chips").innerHTML = chip("", on ? "online" : "offline", on) +
+    (st.bat !== undefined ? chip("Battery", st.bat + "%" + (st.dock ? " · charging" : "")) : "") +
+    (st.steps !== undefined ? chip("Steps", st.steps) : "") +
+    (st.notifs !== undefined ? chip("Notifications", st.notifs) : "") +
+    (s.sd ? chip("microSD", s.sd.replace(/^ok /, ""), s.sd.startsWith("ok")) : "");
+  const imgs = s.images || [], latest = imgs[0] ? vname(imgs[0]) : null;
+  $("ver").textContent = s.ver || "-";
+  $("slot").textContent = s.slot ? "running from " + s.slot : "";
+  const ota = s.ota || "", m = ota.match(/^(ota|kody) (\d+)$/);
+  const busy = /sent|^(ota|kody) \d+$/.test(ota);
+  $("bar").style.display = busy ? "block" : "none";
+  $("barfill").style.width = m ? m[2] + "%" : (busy ? "3%" : "0");
+  const upToDate = latest && s.ver === latest;
+  $("upnote").textContent = !on ? "" : busy ? (m ? (m[1] === "kody" ? "Fetching Kody " : "Updating ") + m[2] + "%" : "Starting...")
+    : /fail/.test(ota) ? "Last try: " + ota : upToDate ? "Up to date" : latest ? "Version " + latest + " is ready" : "";
+  const ub = $("upbtn");
+  ub.disabled = !on || busy || !latest || upToDate;
+  ub.textContent = upToDate ? "Up to date" : latest ? "Update to " + latest : "Update";
+  ub.onclick = () => post({ file: imgs[0] }, "The watch is updating");
+  $("versions").innerHTML = "";
+  for (const f of imgs) {
+    const d = document.createElement("div"); d.className = "item";
+    const cur = vname(f) === s.ver;
+    d.innerHTML = `<div class="n"><b>${vname(f)}</b><span>${f === imgs[0] ? "newest" : "older"}</span></div>` + (cur ? '<span class="tag">on the watch</span>' : "");
+    if (!cur) { const b = document.createElement("button"); b.className = "btn ghost"; b.textContent = "Install"; b.disabled = !on || busy; b.onclick = () => post({ file: f }, "Installing " + vname(f)); d.append(b); }
+    $("versions").append(d);
+  }
+  $("kodybtn").disabled = !on || busy;
+  $("kodybtn").onclick = () => post({ kody: true }, "The watch fetches Kody");
+  const cat = s.catalog || [];
+  $("catalog").innerHTML = cat.length ? "" : '<div class="sub">No apps in the catalog</div>';
+  for (const a of cat) {
+    const d = document.createElement("div"); d.className = "item";
+    d.innerHTML = `<div class="ico" style="background:${a.color}">${a.name[0]}</div><div class="n"><b>${a.name}</b><span>${a.desc} · ${(a.size / 1048576).toFixed(1)} MB${a.pad ? " · virtual pad" : ""}</span></div>`;
+    const ob = document.createElement("button"); ob.className = "btn ghost"; ob.textContent = "Open"; ob.disabled = !on;
+    ob.title = "Opens it on the watch, if it is installed there";
+    ob.onclick = () => post({ ctl: "open", id: a.id }, "Opening " + a.name + " on the watch");
+    d.append(ob);
+    $("catalog").append(d);
+  }
+  const t = $("tests");
+  if (!t.children.length) for (const [id, em, name, sub] of TESTS) {
+    const b = document.createElement("button"); b.className = "test"; b.dataset.id = id;
+    b.innerHTML = `<em>${em}</em>${name}<span>${sub}</span>`;
+    b.onclick = () => post({ test: id }, name + ": sent");
+    t.append(b);
+  }
+  for (const b of t.children) b.disabled = !on;
+}
+/* ---- live: the watch's KWS1 frames, and the finger ---- */
+const cv = $("cv"), cx = cv.getContext("2d");
+let shotN = -1, frames = 0, fpsAt = performance.now();
+async function shot() {
+  if (document.hidden) return setTimeout(shot, 1000);
+  try {
+    const r = await fetch("api/shot", { cache: "no-store" });
+    if (r.status === 200) {
+      const n = r.headers.get("X-Shot");
+      if (n !== shotN) {
+        shotN = n;
+        const b = new DataView(await r.arrayBuffer());
+        const w = b.getUint16(4, true), h = b.getUint16(6, true);
+        if (cv.width !== w) { cv.width = w; cv.height = h; }
+        const img = cx.createImageData(w, h), d = img.data;
+        let p = 0;
+        for (let o = 8; o + 4 <= b.byteLength; o += 4) {
+          const cnt = b.getUint16(o, true), c = b.getUint16(o + 2, true);
+          const R = (c >> 11) << 3, G = ((c >> 5) & 63) << 2, B = (c & 31) << 3;
+          for (let k = 0; k < cnt && p < d.length; k++, p += 4) { d[p] = R | R >> 5; d[p + 1] = G | G >> 6; d[p + 2] = B | B >> 5; d[p + 3] = 255; }
+        }
+        cx.putImageData(img, 0, 0);
+        $("off").style.display = "none";
+        frames++;
+      }
+    }
+  } catch (e) {}
+  const t = performance.now();
+  if (t - fpsAt > 3000) { $("fps").textContent = frames ? (frames * 1000 / (t - fpsAt)).toFixed(1) + " frames/s" : "no picture (is the watch on 0.14 or newer?)"; frames = 0; fpsAt = t; }
+  setTimeout(shot, 350);
+}
+const glass = $("glass");
+let down = null;
+const at = (e) => { const r = glass.getBoundingClientRect(); return [Math.round((e.clientX - r.left) / r.width * 410), Math.round((e.clientY - r.top) / r.height * 502)]; };
+glass.onpointerdown = (e) => { down = at(e); glass.setPointerCapture(e.pointerId); };
+glass.onpointerup = (e) => {
+  if (!down) return;
+  const [x, y] = at(e), [x0, y0] = down; down = null;
+  if (Math.hypot(x - x0, y - y0) < 14) post({ ctl: "tap", x, y }, "Tap");
+  else post({ ctl: "swipe", x0, y0, x1: x, y1: y }, "Swipe");
+};
+for (const b of document.querySelectorAll("[data-ctl]")) b.onclick = () => post({ ctl: b.dataset.ctl }, b.textContent);
+const SW = { l: [330, 250, 80, 250], r: [80, 250, 330, 250], u: [205, 420, 205, 100], d: [205, 100, 205, 420] };
+for (const b of document.querySelectorAll("[data-sw]")) b.onclick = () => { const [x0, y0, x1, y1] = SW[b.dataset.sw]; post({ ctl: "swipe", x0, y0, x1, y1 }, "Swipe"); };
+shot();
+
+/* ---- files ---- */
+let fsDir = "";
+const fsSize = (b) => b < 1024 ? b + " B" : b < 1048576 ? (b / 1024).toFixed(0) + " KB" : (b / 1048576).toFixed(1) + " MB";
+const fsEsc = (t) => t.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
+async function fsLs(dir) {
+  fsDir = dir; $("fsPath").textContent = dir;
+  $("fsList").innerHTML = '<div class="sub">Reading...</div>';
+  const r = await fetch("api/fs?op=ls&path=" + encodeURIComponent(dir), { cache: "no-store" });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) { $("fsList").innerHTML = `<div class="sub">${fsEsc(j.error || "Error " + r.status)}</div>`; return; }
+  const L = $("fsList"); L.innerHTML = "";
+  const root = dir === "/sdcard" || dir === "/data";
+  const ents = (root ? [] : [{ name: "..", dir: true, up: true }]).concat(j.entries);
+  if (!ents.length) L.innerHTML = '<div class="sub">Empty folder</div>';
+  for (const e of ents) {
+    const p = e.up ? dir.slice(0, dir.lastIndexOf("/")) : dir + "/" + e.name;
+    const d = document.createElement("div"); d.className = "item";
+    d.innerHTML = `<div class="ico" style="background:${e.dir ? "var(--yel)" : "var(--blue)"}">${e.dir ? "▸" : "•"}</div><div class="n"><b>${fsEsc(e.up ? ".. back" : e.name)}</b><span>${e.dir ? "folder" : fsSize(e.size)}</span></div>`;
+    if (e.dir) { d.style.cursor = "pointer"; d.onclick = () => fsLs(p); }
+    else {
+      const a = document.createElement("a"); a.className = "btn ghost"; a.textContent = "Download"; a.style.textDecoration = "none";
+      a.href = "api/fs?op=get&path=" + encodeURIComponent(p); a.download = e.name; d.append(a);
+    }
+    if (!e.up) {
+      const b = document.createElement("button"); b.className = "btn ghost"; b.textContent = "Delete"; b.style.color = "var(--red)";
+      b.onclick = async (ev) => {
+        ev.stopPropagation();
+        if (!confirm("Delete " + e.name + (e.dir ? " (only when empty)" : "") + "?")) return;
+        const r = await fetch("api/fs?op=rm&path=" + encodeURIComponent(p), { method: "POST" });
+        toast(r.ok ? "Deleted" : ((await r.json().catch(() => ({}))).error || "Failed"));
+        fsLs(dir);
+      };
+      d.append(b);
+    }
+    L.append(d);
+  }
+}
+$("fsSd").onclick = () => fsLs("/sdcard");
+$("fsData").onclick = () => fsLs("/data");
+$("fsMk").onclick = async () => {
+  if (!fsDir) return toast("Open microSD or Flash first");
+  const n = prompt("Folder name"); if (!n) return;
+  const r = await fetch("api/fs?op=mkdir&path=" + encodeURIComponent(fsDir + "/" + n), { method: "POST" });
+  toast(r.ok ? "Folder made" : "Failed"); fsLs(fsDir);
+};
+$("fsUp").onchange = async (ev) => {
+  if (!fsDir) { toast("Open microSD or Flash first"); ev.target.value = ""; return; }
+  for (const f of ev.target.files) {
+    $("fsBar").style.display = "block"; $("fsBarI").style.width = "30%";
+    toast("Uploading " + f.name + " (" + fsSize(f.size) + ")");
+    const r = await fetch("api/fs?op=put&path=" + encodeURIComponent(fsDir + "/" + f.name), { method: "POST", body: f });
+    const j = await r.json().catch(() => ({}));
+    toast(r.ok ? f.name + " is on the watch" : (j.error || "Upload failed"));
+  }
+  $("fsBarI").style.width = "100%"; setTimeout(() => { $("fsBar").style.display = "none"; }, 800);
+  ev.target.value = ""; fsLs(fsDir);
+};
+
+async function load() { try { state = await (await fetch("api/update")).json(); render(); } catch (e) {} }
+load(); setInterval(load, 2000);
+</script>
+</body>
+</html>

@@ -1,0 +1,19 @@
+# Kode-watch OS: the Kode Dot's layout (kbsp/partitions.csv), so kode-sdk apps
+# find what they expect, plus Kody's frames at the top. 32 MB, 32-bit addressing.
+#   factory      the OS as flashed by cable (rescue); ota_0/ota_1 the OS updated over Wi-Fi
+#   apps         the App Store's region (kapps_fmt.h)
+#   storage      /data
+#   app_pending  the Dot development mailbox, 2 MB here
+#   kody         Kody frames ("KODZ", six worlds), 8 MB, subtype 0x42 (0x40 is apps)
+# Name,       Type, SubType,  Offset,    Size
+nvs,          data, nvs,      0xB000,    0x10000
+otadata,      data, ota,      0x1B000,   0x2000
+phy_init,     data, phy,      0x1D000,   0x1000
+factory,      app,  factory,  0x20000,   0x400000
+ota_0,        app,  ota_0,    0x420000,  0x400000
+ota_1,        app,  ota_1,    0x820000,  0x400000
+coredump,     data, coredump, 0xC20000,  0x20000
+apps,         data, 0x40,     0xC40000,  0x7C0000
+storage,      data, fat,      0x1400000, 0x200000
+app_pending,  data, 0x41,     0x1600000, 0x200000
+kody,         data, 0x42,     0x1800000, 0x800000
