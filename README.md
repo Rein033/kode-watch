@@ -3,7 +3,7 @@
 A DIY smartwatch with its own operating system, built on the
 [Waveshare ESP32-S3-Touch-AMOLED-2.06](https://www.waveshare.com/esp32-s3-touch-amoled-2.06.htm) board.
 
-The OS, the apps and the watch faces are written from scratch in C on ESP-IDF. It doesn't use LVGL. A custom framebuffer renderer draws text, rounded shapes, rings and icons at about 30 fps.
+It is built on the [kode-sdk and kodeOS](#built-on-kode) by **[Kode](https://kode.diy)**, the makers of the Kode Dot, and it features their mascot **Kody**. The watch OS, the apps and the watch faces are written in C on ESP-IDF. It doesn't use LVGL. A custom framebuffer renderer draws text, rounded shapes, rings and icons at about 30 fps.
 
 <p>
   <img src="docs/img/app-rail.png" width="205" alt="App list">
@@ -113,6 +113,23 @@ docs/img/   screenshots and case renders
 - **FT3168 touch:** read it only while the INT pin is low or a finger is down. Blind polling gives periodic NACKs.
 - **Timers:** use signed time differences, `(int32_t)(now - t) < x`.
 
+## Built on Kode
+
+Kode Watch is a community project built on the work of **[Kode](https://kode.diy)**, the makers of the **Kode Dot**. It is not an official Kode product.
+
+- **[kode-sdk](https://github.com/kodediy/kode-sdk)** and **[kodeOS](https://github.com/kodediy/KodeOS)** by Kode. kodekit (`kk.c`), the type, glyphs and look of the UI are ported from them (GPL-3.0-or-later).
+- **Kody**, the character and its animations, is art of Kode, licensed [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/). This repo contains only the player and the build tool (`tools/kodyframes.py`). The watch renders Kody's frames at build time from kodeOS.
+- **Kode, Kode Dot, kodeOS and Kody** are names and trademarks of Kode. See Kode's trademark guidelines (`TRADEMARKS.md` in [kodediy/.github](https://github.com/kodediy/.github)).
+- The fonts that come from the kode SDK are licensed under the SIL Open Font License 1.1.
+
+Docs: [docs.kode.diy](https://docs.kode.diy/sdk/overview)
+
 ## License
 
-GPL-3.0, see [LICENSE](LICENSE). This project includes [bareiron](https://github.com/p2r3/bareiron) (GPL-3.0). `components/nimble_peer` is based on Espressif's NimBLE examples (Unlicense / CC0-1.0).
+GPL-3.0-or-later, see [LICENSE](LICENSE). Exceptions:
+
+- the art of Kody: CC BY-SA 4.0, © Kode;
+- the fonts: SIL OFL 1.1;
+- `components/nimble_peer`: based on Espressif's NimBLE examples (Unlicense / CC0-1.0).
+
+This project also includes [bareiron](https://github.com/p2r3/bareiron) (GPL-3.0).
