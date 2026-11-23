@@ -6,7 +6,18 @@ A DIY smartwatch with its own operating system, built on the
 It is built on the [kode-sdk and kodeOS](#built-on-kode) by **[Kode](https://kode.diy)**, the makers of the Kode Dot, and it features their mascot **Kody**. The watch OS, the apps and the watch faces are written in C on ESP-IDF. It doesn't use LVGL. A custom framebuffer renderer draws text, rounded shapes, rings and icons at about 30 fps.
 
 <p>
+  <img src="docs/img/face.png" width="205" alt="Kody watch face">
   <img src="docs/img/app-rail.png" width="205" alt="App list">
+  <img src="docs/img/control.png" width="205" alt="Control center">
+  <img src="docs/img/settings.png" width="205" alt="Settings">
+</p>
+<p>
+  <img src="docs/img/home.png" width="205" alt="Home Assistant rooms">
+  <img src="docs/img/steps.png" width="205" alt="Steps">
+  <img src="docs/img/timer.png" width="205" alt="Timer">
+  <img src="docs/img/alarm.png" width="205" alt="Alarm">
+</p>
+<p>
   <img src="docs/img/app-battery.png" width="205" alt="Battery graph">
   <img src="docs/img/app-sleep.png" width="205" alt="Sleep tracking">
 </p>
@@ -101,7 +112,7 @@ The hub expects a reverse proxy that does the login and sets a `Remote-User` hea
 ## Repository layout
 
 ```
-firmware/   ESP-IDF project (main/ = OS + apps, components/ = NimBLE helper, bareiron)
+firmware/   ESP-IDF project (main/ = OS + apps, components/ = NimBLE helper)
 hub/        Python/aiohttp hub (stand-in for the Kode Dot hub), OTA page, screenshot tool
 docs/img/   screenshots and case renders
 ```
@@ -137,5 +148,3 @@ GPL-3.0-or-later, see [LICENSE](LICENSE). Exceptions:
 - the art of Kody: CC BY-SA 4.0, © Kode;
 - the fonts: SIL OFL 1.1;
 - `components/nimble_peer`: based on Espressif's NimBLE examples (Unlicense / CC0-1.0).
-
-This project also includes [bareiron](https://github.com/p2r3/bareiron) (GPL-3.0).

@@ -43,7 +43,6 @@
 #include "freertos/semphr.h"
 #include "freertos/task.h"
 #include "apps.h"
-#include "craft.h"
 #include "sound.h"
 #include "imu.h"
 #include "ble.h"
@@ -95,7 +94,7 @@ enum { A_NOTIF, A_TIMER, A_HOME,
 #if CONFIG_BT_ENABLED
        A_PHONE,
 #endif
-       A_RC, A_CRAFT, A_STORE, A_FILES, A_FOLDER, A_SET, A_STEPS, A_ALARM, A_CAL, A_MUSIC, A_FINDPH, A_SLEEP, A_BATT, A_WIFI, A_INFO, A_N };
+       A_STORE, A_FILES, A_FOLDER, A_SET, A_STEPS, A_ALARM, A_CAL, A_MUSIC, A_FINDPH, A_SLEEP, A_BATT, A_WIFI, A_INFO, A_N };
 typedef struct {
     const char *name;
     uint16_t disc;
@@ -109,8 +108,6 @@ static const app_t APPS[A_N] = {
 #if CONFIG_BT_ENABLED
     { "iPhone", C_BLUE, C_SOFT, &KI_BT_46 },
 #endif
-    { "RC car", C_RED, C_LIGHT, &KI_GAUGE_40 },
-    { "Craft", C_OK, C_SOFT, &KI_PIN_40 },
     { "Store", C_BLUE, C_LIGHT, &KI_SHARE_46 },
     { "Files", C_YEL, C_SOFT, &KI_LIST_40 },
     { "Apps", C_RED, C_LIGHT, &KI_MORE_46 },
@@ -218,10 +215,6 @@ static bool rem_top, rem_bot;
 #define STORE_BASE "https://hub.example.com/static/watchapps/"
 static int st_rm = -1;
 static int st_off;      /* the first row shown */
-static int rc_thr, rc_str;
-static bool rc_stick, rc_fast, rc_light;
-static uint32_t rc_sent, rc_car_at;
-static int rc_kmh10 = -1, rc_bat = -1;
 static uint32_t last_input;
 static int rest_drawn_min = -1, rest_drawn_notes = -1, rest_drawn_bat = -2;
 
@@ -582,7 +575,7 @@ static void on_link(const char *m)
     else if ( 0 == strncmp(m, "app remove ", 11) ) { kk_link_send("app removed %s %d", m + 11, apps_remove(m + 11) ? 1 : 0); }
     else if ( 0 == strncmp(m, "app get ", 8) )
     {
-        /* after the catalog is loaded: rc_tick-style, in the main loop */
+        /* after the catalog is loaded, in the main loop */
         (void)snprintf(app_get_id, sizeof(app_get_id), "%s", m + 8);
         apps_refresh(STORE_BASE "index.txt");
     }
@@ -592,11 +585,6 @@ static void on_link(const char *m)
         char url[200], sha[65];
         if ( 2 == sscanf(m + 5, "%199s %64s", url, sha) ) { (void)ota_kody(url, sha); wake(); }
     }
-    else if ( 0 == strncmp(m, "car ", 4) )
-    {
-        int k = 0, b = 0, f = 0;
-        if ( 3 == sscanf(m + 4, "%d %d %d", &k, &b, &f) ) { rc_kmh10 = k; rc_bat = b; rc_fast = (0 != f); rc_car_at = kk_ms(); }
-    }
     else if ( 1 == sscanf(m, "hs %d", &a) ) { for ( int k = 0; k < 3; ++k ) { home_on[k] = ((a >> k) & 1) != 0; } }
     else if ( (0 == strncmp(m, "hn ", 3)) && (m[3] >= '0') && (m[3] <= '3') && (' ' == m[4]) )
     {
@@ -605,85 +593,6 @@ static void on_link(const char *m)
     else if ( 1 == sscanf(m, "sys dock %d", &a) ) { docked = (a != 0); }
     else if ( 1 == sscanf(m, "hub peer %d", &a) ) { linked = (a != 0); }
     else if ( 0 == strcmp(m, "clear") ) { nnotes = 0; }
-}
-
-/* ---- RC car: a one-finger stick, sent to the car through the hub ----
- * Link out: "drive <throttle> <steer>" (-100..100) twenty times a second while the
- * app is open (the car stops after 300 ms of silence), "fast 0|1", "light 0|1".
- * Link in: "car <km/h x10> <battery %> <fast> <source>" from the car. */
-#define RC_CY   262
-#define RC_R    118
-#define RC_BY   410
-
-static int clamp100(int v) { return (v > 100) ? 100 : (v < -100) ? -100 : v; }
-
-static void rc_stick_at(int x, int y)
-{
-    rc_str = clamp100(((x - CX) * 100) / RC_R);
-    rc_thr = clamp100(((RC_CY - y) * 100) / RC_R);
-}
-
-static void rc_tick(uint32_t now)
-{
-    bool const open = (V_APP == view) && (A_RC == app) && !resting;
-    static bool was_open;
-    if ( !open )
-    {
-        if ( was_open ) { kk_link_send("drive 0 0"); net_low_latency(false); }
-        was_open = false;
-        rc_stick = false;
-        rc_thr = rc_str = 0;
-        return;
-    }
-    if ( !was_open ) { net_low_latency(true); }
-    was_open = true;
-    if ( (now - rc_sent) >= 50U )
-    {
-        rc_sent = now;
-        kk_link_send("drive %d %d", rc_stick ? rc_thr : 0, rc_stick ? rc_str : 0);
-    }
-}
-
-static void draw_rc(uint32_t now)
-{
-    bool const car = (0U != rc_car_at) && ((now - rc_car_at) < 1500U);
-    char v[24];
-    if ( car && (rc_kmh10 >= 0) )
-    {
-        (void)snprintf(v, sizeof(v), "%d.%d", rc_kmh10 / 10, rc_kmh10 % 10);
-        text_c(&KF_FIGURE, CX, 96, v, C_LIGHT);
-        (void)snprintf(v, sizeof(v), "km/h   battery %d%%", rc_bat);
-        text_c(&KF_CAPTION, CX, 128, v, C_MED);
-    }
-    else
-    {
-        text_c(&KF_NAME, CX, 100, net_hub_up() ? "no car" : "hub not connected", C_MED);
-        text_c(&KF_CAPTION, CX, 128, "open hub.example.com/rc", C_REST);
-    }
-    kk_disc(CX, RC_CY, RC_R + 6, C_ROW);
-    kk_disc(CX, RC_CY, RC_R - 50, C_SOFT);
-    int const kx = CX + (rc_stick ? (rc_str * RC_R) / 100 : 0);
-    int const ky = RC_CY - (rc_stick ? (rc_thr * RC_R) / 100 : 0);
-    kk_disc(kx, ky, 34, rc_stick ? C_RED : C_OFF);
-    kk_round(24, RC_BY, 172, 64, 32, rc_fast ? C_YEL : C_ROW);
-    text_c(&KF_NAME, 24 + 86, RC_BY + 32 - KF_NAME.cap / 2, rc_fast ? "Fast" : "Safe", rc_fast ? C_SOFT : C_LIGHT);
-    kk_round(KK_W - 24 - 172, RC_BY, 172, 64, 32, rc_light ? C_BLUE : C_ROW);
-    text_c(&KF_NAME, KK_W - 24 - 86, RC_BY + 32 - KF_NAME.cap / 2, "Lights", C_LIGHT);
-    back_bar("RC car");
-}
-
-static void tap_rc(int x, int y)
-{
-    if ( hit(x, y, 24, RC_BY, 172, 64) )
-    {
-        rc_fast = !rc_fast;
-        kk_link_send("fast %d", rc_fast ? 1 : 0);
-    }
-    else if ( hit(x, y, KK_W - 24 - 172, RC_BY, 172, 64) )
-    {
-        rc_light = !rc_light;
-        kk_link_send("light %d", rc_light ? 1 : 0);
-    }
 }
 
 /* ---- Store: apps from the hub's catalog, into the apps region ---- */
@@ -744,42 +653,6 @@ static void tap_store(int x, int y, uint32_t now)
         else if ( it->installed ) { st_rm = i; st_rm_until = now + 3000U; }   /* tap the name: offer Remove */
         return;
     }
-}
-
-/* ---- Craft: a Minecraft Java server (bareiron) ---- */
-static void draw_craft(void)
-{
-    net_status_t st;
-    net_status(&st);
-    craft_state_t const cs = craft_state();
-    text_c(&KF_TITLE, CX, 96, "Minecraft server", C_LIGHT);
-    text_c(&KF_CAPTION, CX, 136, "Java edition 1.21.8, same Wi-Fi", C_MED);
-    char v[48];
-    if ( CRAFT_RUNNING == cs )
-    {
-        (void)snprintf(v, sizeof(v), "%s", st.ip[0] ? st.ip : "-");
-        text_c(&KF_CAPTION, CX, 190, "Multiplayer > Direct connection:", C_MED);
-        text_c(&KF_NAME, CX, 222, v, C_OK);
-        (void)snprintf(v, sizeof(v), "%d %s", craft_players(), (1 == craft_players()) ? "player" : "players");
-        text_c(&KF_FIGURE, CX, 280, v, C_LIGHT);
-        text_c(&KF_CAPTION, CX, 420, "runs until the watch restarts", C_REST);
-    }
-    else
-    {
-        if ( CRAFT_FAILED == cs ) { text_c(&KF_NAME, CX, 220, "the server stopped", C_RED); }
-        bool const ok = st.wifi_up;
-        kk_round(CX - 130, 320, 260, 70, 35, ok ? C_OK : C_OFF);
-        text_c(&KF_NAME, CX, 355 - KF_NAME.cap / 2, ok ? "Start server" : "Needs Wi-Fi", ok ? C_SOFT : C_MED);
-        text_c(&KF_CAPTION, CX, 420, "bareiron by p2r3 (GPL-3.0)", C_REST);
-    }
-    back_bar("Craft");
-}
-
-static void tap_craft(int x, int y)
-{
-    net_status_t st;
-    net_status(&st);
-    if ( (CRAFT_RUNNING != craft_state()) && st.wifi_up && hit(x, y, CX - 130, 320, 260, 70) ) { (void)craft_start(); }
 }
 
 /* ---- the day's steps ---- */
@@ -1031,7 +904,6 @@ static void maybe_rest(uint32_t now)
     int const secs = REST_S[set_rest];   /* the setting, on the wrist and in the dock alike */
     if ( 0 == secs ) { return; }
     if ( (V_APP == view) && (A_WIFI == app) && wifi_ui_modal() ) { return; }
-    if ( (V_APP == view) && (A_RC == app) ) { return; }   /* driving: never rest under the finger */
     if ( (find_until > now) || (banner_until > now) || (alarm_until > now) ) { return; }
     if ( call_uid || ble_asking() ) { return; }
     if ( al_ring_until > now ) { return; }
@@ -1300,7 +1172,7 @@ static void draw_rest(void)
 
 /* ---- the launcher's rail ---- */
 
-/* The rail shows these; RC car, Craft and the Store's apps are in the Apps folder. */
+/* The rail shows these; the Store's apps are in the Apps folder. */
 static const int RAIL[] = { A_NOTIF, A_TIMER, A_CAL, A_MUSIC, A_FINDPH, A_ALARM, A_STEPS, A_SLEEP, A_HOME, A_FOLDER, A_STORE, A_FILES,
 #if CONFIG_BT_ENABLED
                             A_PHONE,
@@ -2040,7 +1912,7 @@ static void tap_files(int x, int y, uint32_t now)
     }
 }
 
-/* ---- the Apps folder: RC car, Craft, and the Store's installed apps ---- */
+/* ---- the Apps folder: the Store's installed apps ---- */
 
 #define FO_COLS 2
 #define FO_ROWS 3
@@ -2054,8 +1926,6 @@ EXT_RAM_BSS_ATTR static apps_item_t fo_cat[APPS_MAX];
 static int fo_items(fo_item_t *out, int max)
 {
     int n = 0;
-    out[n++] = (fo_item_t){ A_RC, -1 };
-    out[n++] = (fo_item_t){ A_CRAFT, -1 };
     int const c = apps_list(fo_cat, APPS_MAX);
     for ( int i = 0; (i < c) && (n < max); ++i ) { if ( fo_cat[i].installed ) { out[n++] = (fo_item_t){ -1, i }; } }
     return n;
@@ -2781,7 +2651,6 @@ static void draw_app(void)
 #if CONFIG_BT_ENABLED
     case A_PHONE: draw_phone(); break;
 #endif
-    case A_RC: draw_rc(kk_ms()); break;
     case A_STORE: draw_store(kk_ms()); break;
     case A_FILES: draw_files(kk_ms()); break;
     case A_FOLDER: draw_folder(); break;
@@ -2793,7 +2662,6 @@ static void draw_app(void)
     case A_FINDPH: draw_findph(); break;
     case A_SLEEP: draw_sleep(); break;
     case A_BATT: draw_batt(); break;
-    case A_CRAFT: draw_craft(); break;
     case A_WIFI:
         wifi_ui_draw();
         if ( !wifi_ui_modal() ) { back_bar("Wi-Fi"); }
@@ -2812,7 +2680,6 @@ static void tap_app(int x, int y, uint32_t now)
 #if CONFIG_BT_ENABLED
     case A_PHONE: tap_phone(x, y, now); break;
 #endif
-    case A_RC: tap_rc(x, y); break;
     case A_STORE: tap_store(x, y, now); break;
     case A_FILES: tap_files(x, y, now); break;
     case A_FOLDER: tap_folder(x, y); break;
@@ -2821,7 +2688,6 @@ static void tap_app(int x, int y, uint32_t now)
     case A_CAL: tap_cal(x, y); break;
     case A_MUSIC: tap_music(x, y); break;
     case A_FINDPH: tap_findph(x, y); break;
-    case A_CRAFT: tap_craft(x, y); break;
     case A_WIFI: wifi_ui_tap(x, y); break;
     default: break;
     }
@@ -2848,7 +2714,6 @@ static void back(void)
     {
         if ( (A_WIFI == app) && wifi_ui_modal() ) { wifi_ui_back(); }
         else if ( (A_NOTIF == app) && (note_open >= 0) ) { note_open = -1; }
-        else if ( (A_RC == app) || (A_CRAFT == app) ) { open_app(A_FOLDER); }
         else if ( A_INFO == app ) { open_app(A_SET); }
         else { view = V_APPS; }
     }
@@ -2969,7 +2834,6 @@ void app_main(void)
         sl_tick(now);
         bt_tick(now);
         fs_tick();
-        rc_tick(now);
         if ( app_get_id[0] && !apps_loading() )
         {
             apps_item_t li[APPS_MAX];
@@ -3029,12 +2893,6 @@ void app_main(void)
             if ( find_until > now ) { find_until = 0; }
             if ( !resting && (tap_alarm_ring(tx, ty, now) || tap_modal(tx, ty)) ) { swallow = true; }
             drag_level = 0;
-            if ( !swallow && (V_APP == view) && (A_RC == app)
-                 && (((tx - CX) * (tx - CX) + (ty - RC_CY) * (ty - RC_CY)) <= (RC_R + 20) * (RC_R + 20)) )
-            {
-                rc_stick = true;
-                rc_stick_at(tx, ty);
-            }
             if ( !swallow && (V_CC == view) )
             {
                 if ( hit(tx, ty, LV_X, LV1_Y, LV_W, LV_H) ) { drag_level = 1; }
@@ -3048,7 +2906,6 @@ void app_main(void)
             lx = tx;
             ly = ty;
             last_input = now;
-            if ( !swallow && rc_stick ) { rc_stick_at(lx, ly); }
             if ( !swallow && drag_level ) { cc_level_drag(lx); }
             else if ( !swallow && (V_APPS == view) )
             {
@@ -3074,14 +2931,6 @@ void app_main(void)
             else if ( (ax > 70) && (ax > ay) ) { g = (dx > 0) ? G_RIGHT : G_LEFT; }
             else if ( (ay > 70) && (ay > ax) ) { g = (dy > 0) ? G_DOWN : G_UP; }
             if ( dragging && ((G_UP == g) || (G_DOWN == g)) ) { g = G_NONE; }
-            if ( rc_stick )
-            {
-                /* the stick lets go: stop now, and no swipe out of the app */
-                rc_stick = false;
-                rc_thr = rc_str = 0;
-                kk_link_send("drive 0 0");
-                g = G_NONE;
-            }
             if ( drag_level )
             {
                 save_settings();

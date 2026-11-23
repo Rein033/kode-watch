@@ -61,7 +61,7 @@ MIRROR_GAP = 0.15  # spiegelbeeld hooguit ~6 keer per seconde
 @web.middleware
 async def no_cache(request, handler):
     resp = await handler(request)
-    if request.path.endswith((".html", ".js", ".css")) or request.path in ("/", "/watch", "/docs", "/watch-docs", "/truck", "/rc"):
+    if request.path.endswith((".html", ".js", ".css")) or request.path in ("/", "/watch", "/docs", "/watch-docs"):
         resp.headers["Cache-Control"] = "no-cache"
     return resp
 
@@ -144,12 +144,8 @@ class Session:
     def peer(self):
         slot = hub.get(self.user, {})
         if self.role == "dot":
-            # Een open RC-simulator gaat voor op het horloge.
-            for other in ("car", "watch"):
-                p = slot.get(other)
-                if p is not None and not p.closed:
-                    return p
-            return None
+            p = slot.get("watch")
+            return p if p is not None and not p.closed else None
         p = slot.get("dot")
         return p if p is not None and not p.closed else None
 
@@ -524,7 +520,7 @@ async def api_job(request):
 # ---- edit the code in the browser (public) ----------------------------------
 
 EDIT_PREFIX = "g_"
-PRIVATE_APPS = {"kodewatch", "watchremote", "rcremote"}   # need the Kode Link pages, which are private
+PRIVATE_APPS = {"kodewatch", "watchremote"}   # need the Kode Link pages, which are private
 MAX_CODE = 64 * 1024
 MAX_GUEST_QUEUE = 4
 GUEST_KEEP_S = 6 * 3600
@@ -688,14 +684,6 @@ async def watch_docs_page(request):
     return web.FileResponse(STATIC / "watch-docs.html")
 
 
-async def truck_page(request):
-    return web.FileResponse(STATIC / "truck.html")
-
-
-async def rc_page(request):
-    return web.FileResponse(STATIC / "rc.html")
-
-
 async def api_notify(request):
     """Een melding naar het horloge, bv. vanuit Home Assistant: POST {"text": "..."}."""
     try:
@@ -721,90 +709,6 @@ async def status(request):
         "apps": [a for a in app_list()
                  if request.headers.get("Remote-User") or a["id"] not in PRIVATE_APPS],
     })
-
-
-class CarPeer:
-    """De RC-simulator in de browser (/rc): een hub-partner zonder sim-proces.
-
-    Link-berichten van de Dot komen als JSON {t:"link", s} bij de browser; wat de browser
-    terugstuurt ({t:"link", s}) gaat als "n <s>" naar de Dot.
-    """
-
-    role = "car"
-    mirror = False
-
-    def __init__(self, ws, user):
-        self.ws = ws
-        self.user = user
-        self.closed = False
-
-    def send_line(self, line):
-        if line.startswith("n ") and not self.ws.closed:
-            asyncio.get_running_loop().create_task(self.ws.send_str(json.dumps({"t": "link", "s": line[2:]})))
-
-    async def send_json(self, **kw):
-        if kw.get("t") == "link":
-            return  # komt al via send_line
-        if not self.ws.closed:
-            await self.ws.send_str(json.dumps(kw))
-
-    @property
-    def dot(self):
-        p = hub.get(self.user, {}).get("dot")
-        return p if p is not None and not p.closed else None
-
-    def join(self):
-        old = hub.setdefault(self.user, {}).get("car")
-        hub[self.user]["car"] = self
-        if old is not None and old is not self:
-            old.closed = True
-        d = self.dot
-        self.send_line(f"n hub peer {1 if d else 0}")
-        if d:
-            d.send_line("n hub peer 1")
-
-    def leave(self):
-        self.closed = True
-        slot = hub.get(self.user, {})
-        if slot.get("car") is self:
-            del slot["car"]
-            d = self.dot
-            if d:
-                w = slot.get("watch")
-                d.send_line(f"n hub peer {1 if (w is not None and not w.closed) else 0}")
-
-    async def from_browser(self, msg):
-        if msg.get("t") != "link":
-            return
-        text = str(msg.get("s", ""))[:200].replace("\n", " ")
-        if text.startswith("car "):
-            w = hub.get(self.user, {}).get("watch")
-            if isinstance(w, DevicePeer) and not w.closed:
-                w.send_line("n " + text)
-        d = self.dot
-        if text and d:
-            d.send_line("n " + text)
-            if not text.startswith("car "):
-                await d.send_json(t="link", dir="in", s=text)
-
-
-async def ws_car(request):
-    ws = web.WebSocketResponse(heartbeat=20, max_msg_size=1 << 16, compress=False)
-    await ws.prepare(request)
-    car = CarPeer(ws, request.headers.get("Remote-User", "") or "anon")
-    car.join()
-    try:
-        async for msg in ws:
-            if msg.type == WSMsgType.TEXT:
-                try:
-                    await car.from_browser(json.loads(msg.data))
-                except (ValueError, TypeError):
-                    pass
-            elif msg.type in (WSMsgType.ERROR, WSMsgType.CLOSE):
-                break
-    finally:
-        car.leave()
-    return ws
 
 
 DEVICES = ROOT / "devices.json"   # sleutel -> {"user", "role", "name"}; alleen leesbaar voor kode
@@ -892,12 +796,6 @@ class DevicePeer:
             return
         if not text.startswith("st "):
             log.info("device %s: %s", self.user, text[:60])
-        if re.fullmatch(r"drive -?\d{1,3} -?\d{1,3}|fast [01]|light [01]", text):
-            # The watch as the remote of the RC car (the /rc simulator now, the car later).
-            car = hub.get(self.user, {}).get("car")
-            if car is not None and not car.closed:
-                car.send_line("n " + text)
-            return
         if text.startswith("sd "):
             watch_state.setdefault(self.user, {})["sd"] = text[3:][:60]
             return
@@ -1674,9 +1572,6 @@ def make_app():
     app.router.add_get("/watch", watch_page)
     app.router.add_get("/docs", docs_page)
     app.router.add_get("/watch-docs", watch_docs_page)
-    app.router.add_get("/truck", truck_page)
-    app.router.add_get("/rc", rc_page)
-    app.router.add_get("/ws-car", ws_car)
     app.router.add_post("/api/notify", api_notify)
     app.router.add_get("/ws", ws_handler)
     app.router.add_get("/ws-dev", ws_dev)
