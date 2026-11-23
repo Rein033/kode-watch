@@ -44,18 +44,18 @@ A custom 3D-printed case, modelled in CadQuery. The screen and board form the to
 ## How it works
 
 ```
- watch  <── WebSocket (text lines) ──>  hub  <──>  Home Assistant
+ watch  <── WebSocket (text lines) ──>  Kode Dot (hub)  <──>  Home Assistant
    │                                     │
    └── Bluetooth (ANCS/AMS/CTS) ── iPhone └── OTA images, remote logs, screenshots
 ```
 
-The watch keeps a WebSocket open to a small Python hub (`hub/server.py`). They exchange line-based text messages such as `st ...`, `log ...`, `cal ...` and `mu ...`. The hub does the heavy lifting:
+The **Kode Dot is the watch's hub**: the watch pairs with a Kode Dot and keeps a WebSocket open to it. They exchange line-based text messages such as `st ...`, `log ...`, `cal ...` and `mu ...`. The hub does the heavy lifting:
 
 - talking to Home Assistant;
 - serving over-the-air (OTA) updates;
 - collecting remote logs and live screenshots of the watch screen, for debugging without a cable.
 
-> **Note:** the hub currently runs on a home server. The plan is to move it onto a Kode Dot so that the Dot acts as the watch's hub.
+> **Status:** the Kode Dot hub app is in development. Until it is ready, `hub/server.py` (Python) does the same job on any server and speaks the same protocol.
 
 ## Updates and rollback
 
@@ -87,7 +87,7 @@ cfg save
 
 The default hub URL and app store use the placeholder `hub.example.com`. Change `DEFAULT_URL` in `firmware/main/net.c` and `STORE_BASE` in `firmware/main/os.c` to point at your own hub.
 
-## Running the hub
+## Running the Python hub (until the Kode Dot hub is ready)
 
 ```bash
 pip install aiohttp numpy pillow
@@ -102,7 +102,7 @@ The hub expects a reverse proxy that does the login and sets a `Remote-User` hea
 
 ```
 firmware/   ESP-IDF project (main/ = OS + apps, components/ = NimBLE helper, bareiron)
-hub/        Python/aiohttp hub server, OTA page, screenshot tool
+hub/        Python/aiohttp hub (stand-in for the Kode Dot hub), OTA page, screenshot tool
 docs/img/   screenshots and case renders
 ```
 
